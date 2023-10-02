@@ -52,6 +52,8 @@ class SpotifyAPI:
         if response.status_code == 200:
             data = response.json()
             self.genres_list = data['genres']
+            print(self.genres_list)
+            print("# genres = ",len(self.genres_list))
         else:
             print(f'Error: {response.content}')
 
@@ -114,24 +116,27 @@ class SpotifyAPI:
                     next_page = data['artists']['next']
                     if next_page is not None:
                         response = requests.get(next_page, headers=self.headers)
-                        data = response.json()
+                        if response.status_code == 429:
+                            print("Rate limit reached")
+                            return
+                        else: data = response.json()
                     else:
                         break #reached end of artists for that genre
                 
             elif response.status_code == 429:
                 print("Rate limit reached")
-                break
+                return
             else:
                 # TO DO: what happens when token expires
                 # TO DO: throw error  
                 print(f'Error: {response.status_code}')
 
-#uncomment the below for testing
+#uncomment the below for quick testing
 #open class:
-#spotify = SpotifyAPI()
-#spotify.get_token()
-#spotify.get_genres()
-#spotify.add_artists()
+spotify = SpotifyAPI()
+spotify.get_token()
+spotify.get_genres()
+spotify.add_artists()
 
 
 
