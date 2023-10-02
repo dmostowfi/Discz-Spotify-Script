@@ -47,6 +47,7 @@ class SpotifyAPI:
 
         else:
             print(f"Failed to get token: {response.content}")
+            raise Exception("Failed to get token")
 
     
 
@@ -60,6 +61,7 @@ class SpotifyAPI:
             print("# genres = ",len(self.genres_list))
         else:
             print(f'Error: {response.content}')
+            raise Exception("Failed to get genres")
 
 
     #TO DO: try to hit the rate limit
@@ -132,10 +134,8 @@ class SpotifyAPI:
                 return
             else:
                 # TO DO: what happens when token expires
-                # TO DO: throw error  
                 print(f'Error: {response.status_code}')
-
-        print(artist_data)
+                raise Exception(f'Error: {response.status_code}')
 
 #uncomment the below for quick testing
 #open class:
