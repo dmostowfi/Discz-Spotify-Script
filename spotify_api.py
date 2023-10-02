@@ -65,13 +65,18 @@ class SpotifyAPI:
         artist_data = {}
 
         url = "https://api.spotify.com/v1/search"
+        i = 0 #for tracking how many genres we get through before hitting limit
 
-        for genre in self.genres_list[:3]: #TO DO: REMOVE INDEX. FOR TESTING ONLY
+        for genre in self.genres_list:
             
+            print(f"Finding artists for {genre} genre")
+            i += 1
+            print("i=", i)
             # first, call Spotify /search API and filter on genre
             params = {
-                f"q": "genre:\{genre}\"",
-                "type": "artist"
+                "q": f"genre:\"{genre}\"",
+                "type": "artist", 
+                "limit":50
             }
             response = requests.get(url, headers=self.headers, params=params)
 
@@ -81,33 +86,52 @@ class SpotifyAPI:
                 #newurl = data['artists']['href']
             if response.status_code == 200:
                 data = response.json()
+
+                while True:
+                    #list of artists for that genre
+                    artists_list = data['artists']['items']
+                    print('total items =', data['artists']['total'])
+
+                    # time to add artists to dictionary
+                    for artist in artists_list:
+
+                        #extract data for each artist
+                        id = artist['id']
+                        name = artist['name']
+                        genres = artist['genres']
+                        popularity = artist['popularity']
+
+                        #check for membership to avoid duplicate entries
+                        if id not in artist_data:
+                            artist_data[id] = {
+                            'name': name,
+                            'genres': genres,
+                            'popularity': popularity
+                        }
+                            print(f"added artist {name}")
+
+                    #moving onto the next page
+                    next_page = data['artists']['next']
+                    if next_page is not None:
+                        response = requests.get(next_page, headers=self.headers)
+                        data = response.json()
+                    else:
+                        break #reached end of artists for that genre
                 
-                #list of artists for that genre
-                artists_list = data['artists']['items']
-                print('total items =', data['artists']['total'])
-
-                # time to add artists to dictionary
-                for artist in artists_list:
-
-                    #extract data for each artist
-                    id = artist['id']
-                    name = artist['name']
-                    genres = artist['genres']
-                    popularity = artist['popularity']
-
-                    #check for membership to avoid duplicate entries
-                    if id not in artist_data:
-                        artist_data[id] = {
-                        'name': name,
-                        'genres': genres,
-                        'popularity': popularity
-                    }
-                
+            elif response.status_code == 429:
+                print("Rate limit reached")
+                break
             else:
                 # TO DO: what happens when token expires
                 # TO DO: throw error  
                 print(f'Error: {response.status_code}')
 
+#uncomment the below for testing
+#open class:
+#spotify = SpotifyAPI()
+#spotify.get_token()
+#spotify.get_genres()
+#spotify.add_artists()
 
 
 
