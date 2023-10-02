@@ -1,13 +1,18 @@
 from spotify_api import SpotifyAPI
 
-#opens an instance of SpotifyAPI class
-spotify = SpotifyAPI()
+try:
 
-#retrieves an access token from Spotify 
-spotify.get_token()
+    #opens an instance of SpotifyAPI class
+    spotify = SpotifyAPI()
 
-#returns a list of all Spotify genres 
-spotify.get_genres()
+    #retrieves an access token from Spotify 
+    spotify.get_token()
 
-#for each genre, add artists to a dictionary
-spotify.add_artists()
+    #returns a list of all Spotify genres 
+    spotify.get_genres()
+
+    #for each genre, add artists to a dictionary
+    spotify.add_artists()
+
+except Exception as e:
+    print(f"An error occurred: {e}")
