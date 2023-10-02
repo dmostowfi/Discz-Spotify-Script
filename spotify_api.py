@@ -1,5 +1,9 @@
 import base64
 import requests
+import os
+
+from dotenv import load_dotenv
+load_dotenv()
 
 #class for all interactions with Spotify API
 class SpotifyAPI:
@@ -8,8 +12,8 @@ class SpotifyAPI:
     def get_token(self):
     
         # get spotify app credentials
-        client_id = '498bd1724a06480b9564f268488c2e68'
-        client_secret = '0d249f3ca810421e8bf969bbcae7290b'
+        client_id = os.getenv("CLIENT_ID")
+        client_secret = os.getenv("CLIENT_SECRET")
 
         # encoding the credentials
         auth_header = base64.b64encode(f"{client_id}:{client_secret}".encode('utf-8')).decode('utf-8')
@@ -131,12 +135,14 @@ class SpotifyAPI:
                 # TO DO: throw error  
                 print(f'Error: {response.status_code}')
 
+        print(artist_data)
+
 #uncomment the below for quick testing
 #open class:
-spotify = SpotifyAPI()
-spotify.get_token()
-spotify.get_genres()
-spotify.add_artists()
+#spotify = SpotifyAPI()
+#spotify.get_token()
+#spotify.get_genres()
+#spotify.add_artists()
 
 
 
