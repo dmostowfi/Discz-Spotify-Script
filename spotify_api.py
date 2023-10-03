@@ -31,7 +31,6 @@ class SpotifyScraper:
         # encoding the credentials
         auth_header = base64.b64encode(f"{client_id}:{client_secret}".encode('utf-8')).decode('utf-8')
 
-        # documentation for client creds flow: https://developer.spotify.com/documentation/web-api/tutorials/client-credentials-flow
         authOptions = {
             'url': 'https://accounts.spotify.com/api/token',
             'headers': {
@@ -73,14 +72,11 @@ class SpotifyScraper:
     async def get_genres(self):
         async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
             async with session.get('https://api.spotify.com/v1/recommendations/available-genre-seeds', headers=self.headers) as response:
-            #sync approach: #response = requests.get('https://api.spotify.com/v1/recommendations/available-genre-seeds', headers=self.headers)
                 self.api_call_counter()
                 if response.status == 200:
                     data = await response.json()
                     self.genres_list = data['genres']
                     self.genres_set = set(self.genres_list)
-                    print(self.genres_set)
-                    print("# genres = ",len(self.genres_set))
                 else:
                     error_msg = await response.content
                     print(f'Error: {error_msg}')
@@ -113,26 +109,22 @@ class SpotifyScraper:
                                     self.more_genres_set.add(genre)
                         #moving onto the next page
                         next_page = data['artists']['next']
-                        #print(next_page)
                         if next_page is not None:
                             async with session.get(next_page, headers=self.headers) as response:
-                            #response = requests.get(next_page, headers=self.headers)
                                 self.api_call_counter()
-                                #print(response.status)
                                 if response.status == 429:
                                     print("Rate limit reached")
                                     return
                                 else: data = await response.json()
                         else:
                             break #reached end of items for that genre
-                    print("# more genres = ",len(self.more_genres_set))
                 elif response.status == 429:
                     print("Rate limit reached")
                     return
                 else:
                     error_msg = await response.content
                     print(f'Error: {error_msg}')
-                    raise Exception("Failed to get more genres")
+                    raise Exception("Failed to get niche genres")
         
     # method for getting categories
     async def get_categories(self):
@@ -140,7 +132,6 @@ class SpotifyScraper:
             self.categories_list = [] 
             params = {"limit": 50}
             async with session.get('https://api.spotify.com/v1/browse/categories', headers=self.headers, params=params) as response:
-            #response = requests.get('https://api.spotify.com/v1/browse/categories', headers=self.headers, params=params)
                 self.api_call_counter()
                 if response.status == 200:
                     data = await response.json()
@@ -149,13 +140,11 @@ class SpotifyScraper:
                         for item in categories_json:
                             category = item['name']
                             self.categories_list.append(category)
-                            #print("adding to list:", category)
 
                         #moving onto the next page
                         next_page = data['categories']['next']
                         if next_page is not None:
                             async with session.get(next_page, headers=self.headers, params=params) as response:
-                            #response = requests.get(next_page, headers=self.headers)
                                 self.api_call_counter()
                                 if response.status == 429:
                                     print("Rate limit reached")
@@ -163,9 +152,6 @@ class SpotifyScraper:
                                 else: data = await response.json()
                         else:
                             break #reached end of categories
-
-                    print(self.categories_list)
-                    print("# categories = ",len(self.categories_list))
                 else:
                     error_msg = await response.content
                     print(f'Error: {error_msg}')
@@ -184,7 +170,6 @@ class SpotifyScraper:
 
 
     #TO DO: try to hit the rate limit
-    #TO DO: potentially write to DB
     #method for writing artist data to dictionary
     async def add_artists(self, l: list[str], query: str): 
         async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
@@ -209,18 +194,14 @@ class SpotifyScraper:
                     }
                 print(params)
                 async with session.get('https://api.spotify.com/v1/search', headers=self.headers, params=params) as response:
-                #response = requests.get(url, headers=self.headers, params=params)
                     self.api_call_counter()
                     # then, get artist data 
                     if response.status == 200:
                         data = await response.json()
-                        #print(response.headers)
 
                         while True:
                             #list of artists for that genre
                             artists_list = data['artists']['items']
-                            #print(artists_list)
-                            #print('total items =', data['artists']['total'])
 
                             # time to add artists to dictionary
                             for artist in artists_list:
@@ -242,12 +223,9 @@ class SpotifyScraper:
 
                             #moving onto the next page
                             next_page = data['artists']['next']
-                            #print(next_page)
                             if next_page is not None:
                                 async with session.get(next_page, headers=self.headers) as response:
-                                #response = requests.get(next_page, headers=self.headers)
                                     self.api_call_counter()
-                                    #print(response.status)
                                     if response.status == 429:
                                         print("Rate limit reached")
                                         return
@@ -263,7 +241,7 @@ class SpotifyScraper:
                         print(f'Error: {response.status}')
                         raise Exception(f'Error: {response.status}')
                     
-            #print(self.artist_data)
+                print("#arists:", len(self.artist_data))
                     
 
 
