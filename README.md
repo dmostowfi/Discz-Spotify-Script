@@ -8,7 +8,7 @@ Given there is no direct route to extract all of Spotify's artist data, I create
 
 | Method | Purpose | Endpoint(s) | Tradeoffs |
 | ------ | -------------------------- | ------ | -------------------------- |
-| `get_genres` | Creates a set of 126 genres | /recommendations/available-genre-seeds | Provides an entry point to getting initial results from `/search`, but is limited to broader genres that may exclude niche artists | 
+| `get_genres` | Creates a set of 126 genres | /recommendations/ available-genre-seeds | Provides an entry point to getting initial results from `/search`, but is limited to broader genres that may exclude niche artists | 
 `get_categories` | Creates a list of 52 categories | /browse/categories | Searching by category aims to retrieve more niche artists not captured in genre filter, though there is likely some overlap; requires more iterations and API calls to page through categories results|  
 `get_niche_genres` | Creates a set of 168 new genres. Loops thru the original list of 126 genres to call` /search`, extract "genres" field for each artist, and add new, more niche genres to the set | /search | Searching on more niche genres allows newer artists to appear in `/search`, though this function takes O(n^3) time in the worst case to loop through artists, genres, and then paged `/search` results |
 `add_artists` | Takes a genres set/category list as an argument and either "genre" or "category" query. Loops through list/set to call `/search` on a `genre` or `category`, then iterates through the returned artists to extract required data (will comment on writing data in next section) | /search | Although params for `/search` are slightly different whether searching on "genre" or "category", wanted to ensure `add_artists` accepted both types of inputs to adhere to "DRY" principle |
@@ -27,18 +27,20 @@ Given there is no direct route to extract all of Spotify's artist data, I create
 Although I never hit the rate limit, I achieved a max of 240 API calls per rolling 30-second window using asynchronous programming. This is detailed in the asynchronous `run_spotify_scraper` method in the `main.py file`, and the flow is as flows:
 
 1. Run `get_genres` and `get_categories` simultaneously
-2. Prepare to input the results of get_genres and `get_categories` in `add_artists`, 
+2. Prepare to input the results of `get_genres` and `get_categories` in `add_artists`, and prepare to run `get_niche_genres`
+3. Run `get_niche_genres` when `get_genres` and `get_categories` finish
+4. Run `add_artists` on results of `get_genres`, `get_categories`, and `get_niche_genres` simultaneously. 
 
-"If I had more time" sidenote #3:
+"If I had more time" sidenote #3: Find more endpoints to extract even more artists from `/search`, then run those concurrently within the flow above. Of course, I would do so with an eye for time complexity, ideally trying not to exceed loops that would exceed linear time. 
 
 #### Handling the rate limit
+My current approach to handling the rate limit is to wait to hit the `429` status code, extract the `Retry-After` field from the response header, then hold off the script's execution until `Retry-After` time has passed.  
 
+"If I had more time" sidenote #4: The above was the most straightforward approach given the time constraints, but ideally I could have inspected the API's behavior when the rate limit was hit and decided the best course of action from there. A serious drawback to the above solution is being beholden to Spotify's suggestion, which is expected to be longer to moderate API usage. Some other approaches I may have considered (+ potential drawbacks) include: 
 
-
- 
-"If I had more time" sidenote #4: Ideally I would have inspected the API's behavior when the rate limit was hit and decided the best course of action from there. Some other approaches I may have considered (+ potential drawbacks) include: 
-
-*  
+*  Getting "just close enough": Once I identified when the rate limit was reached, I could used my `api_call_counter` helper function to track if I was about to hit the limit, approximated the minimum time needed to pause the script's execution to bring down that number, and then continued the script without ever hitting the 429 code. 
+* Using multiple tokens: First, this might be considered "cheating", but also the documentation suggests that rate limits are imposed when an APP makes too many calls, so my interpretation is that this wouldn't have solved the issue.
+* [Spotipy Python library](https://spotipy.readthedocs.io/en/2.22.1/#): Similarly, I'm not familiar with how trustworthy non-official Python libraries are, though I would have loved to look more into it!  
 
 
 ### 4. Testing
