@@ -89,8 +89,8 @@ class SpotifyScraper:
     #method for getting even more obscure genres
     async def get_niche_genres(self):
         async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:                            
-            #create a new set, starting with the 126 genres we're already iterating over: 
-            self.more_genres_set = self.genres_set.copy()
+            #create a new set for niche genres 
+            self.more_genres_set = set()
             #iterate through list of 126 genres extracted from get_genres
             for genre in self.genres_list:
                 params = {
@@ -110,7 +110,9 @@ class SpotifyScraper:
                             if len(more_genres) == 0: pass
                             else:
                                 for genre in more_genres:
-                                    self.more_genres_set.add(genre)
+                                    #don't add if already in genres_set
+                                    if genre not in self.genres_set:
+                                        self.more_genres_set.add(genre)
                         #moving onto the next page
                         next_page = data['artists']['next']
                         if next_page is not None:
