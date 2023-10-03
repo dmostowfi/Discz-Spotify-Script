@@ -1,7 +1,13 @@
 # Discz-Spotify-Script
 
 ## How to run the script
-TO DO
+
+1. Ensure all required libraries are properly installed.
+2. Create an .env file in your directory and add your Spotify app credentials:
+`CLIENT_ID=your_spotify_client_id`
+`CLIENT_SECRET=your_spotify_client_secret`
+3. Run the `main.py` file. This will automatically import the `SpoifyScraper` class, which contains all the methods to execute the task, from the `spotify_api.py` file.
+4. Logs printed to the console will indicate that the script is running.    
 
 ## Summary of the approach
 
