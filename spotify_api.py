@@ -133,20 +133,6 @@ class SpotifyScraper:
                     error_msg = await response.content
                     print(f'Error: {error_msg}')
                     raise Exception("Failed to get more genres")
-
-        
-    # method for getting markets where Spotify is available
-    def get_markets(self):
-        response = requests.get('https://api.spotify.com/v1/markets', headers=self.headers)
-        self.api_call_counter()
-        if response.status_code == 200:
-            data = response.json()
-            self.markets_list = data['markets']
-            print(self.markets_list)
-            print("# markets = ",len(self.markets_list))
-        else:
-            print(f'Error: {response.content}')
-            raise Exception("Failed to get markets")
         
     # method for getting categories
     async def get_categories(self):
