@@ -7,7 +7,7 @@
 `CLIENT_ID=your_spotify_client_id`
 `CLIENT_SECRET=your_spotify_client_secret`
 3. Run the `main.py` file. This will automatically import the `SpoifyScraper` class, which contains all the methods to execute the task, from the `spotify_api.py` file.
-4. Logs printed to the console will indicate that the script is running.    
+4. You will see that the script is running and the `artist_data` dictionary is growing by the messages "# API calls in last 30 seconds: #" and "total arists in dict: #" printed to the console at every iteration. When the first 100 artists are added, the dictionary will print to the console.     
 
 ## Summary of the approach
 
@@ -40,12 +40,14 @@ Although I never hit the rate limit, I achieved a max of 240 API calls per rolli
 3. Run `get_niche_genres` when `get_genres` and `get_categories` finish
 4. Run `add_artists` on results of `get_genres`, `get_categories`, and `get_niche_genres` simultaneously. 
 
-"If I had more time" sidenote #3: Find more endpoints to extract even more artists from `/search`, then run those concurrently within the flow above. Of course, I would do so with an eye for time complexity, ideally trying not to exceed loops that would exceed linear time. 
+"If I had more time" sidenote #3-4: 
+* Find more endpoints to extract even more artists from `/search`, then run those concurrently within the flow above. Of course, I would do so with an eye for time complexity, ideally trying not to exceed loops that would exceed linear time. 
+* I want to note that I used `aiohttp` to make async HTTP requests. I was running into an SSL certificate error, which may be due to my older macOS. I want to acknowledge that my fix (setting `SSL verification = False`) is not best practice, but I went with it in favor of getting the functionality working. If I had more time I would properly update my certificates.  
 
 #### Handling the rate limit
 My current approach to handling the rate limit is to wait to hit the `429` status code, extract the `Retry-After` field from the response header, then hold off the script's execution until `Retry-After` time has passed.  
 
-"If I had more time" sidenote #4: The above was the most straightforward approach given the time constraints, but ideally I could have inspected the API's behavior when the rate limit was hit and decided the best course of action from there. A serious drawback to the above solution is being beholden to Spotify's suggestion, which is expected to be longer to moderate API usage. Some other approaches I may have considered (+ potential drawbacks) include: 
+"If I had more time" sidenote #5: The above was the most straightforward approach given the time constraints, but ideally I could have inspected the API's behavior when the rate limit was hit and decided the best course of action from there. A serious drawback to the above solution is being beholden to Spotify's suggestion, which is expected to be longer to moderate API usage. Some other approaches I may have considered (+ potential drawbacks) include: 
 
 *  Getting "just close enough": Once I identified when the rate limit was reached, I could used my `api_call_counter` helper function to track if I was about to hit the limit, approximated the minimum time needed to pause the script's execution to bring down that number, and then continued the script without ever hitting the 429 code. 
 * Using multiple tokens: First, this might be considered "cheating", but also the documentation suggests that rate limits are imposed when an APP makes too many calls, so my interpretation is that this wouldn't have solved the issue.
@@ -55,10 +57,10 @@ My current approach to handling the rate limit is to wait to hit the `429` statu
 ### 4. Testing
 
 * Used unittest Python library to run various unit tests in testing.py
-* Created a helper function called api_call_counter to count the number of API calls in a rolling 30-second period. 
+* Created a helper function called `api_call_counter` to count the number of API calls in a rolling 30-second period. This function creates a queue data structure that holds the timestamps of every API call. I chose this DS because enqueuing and dequeing both take constant time (O(1)) and this data structure allows me to easily remove the oldest element (i.e., the older timestamps when more than 30 seconds have passed)  
 * Also manually tested using print statements, such as tracking the results of api_call_counter and measuring the final length of artist_data.
 
-"If I had more time" sidenote #5: Additional unit tests I would have run include: 
+"If I had more time" sidenote #6: Additional unit tests I would have run include: 
 * simulating receiving 429 response code and testing behavior on `get_genres`, `get_categories`, `get_niche_genres`, and `add_artists` (separately and together)
 * confirm insertion into `artist_data` dictionary (did so manually instead)
 * simulate token expiration 

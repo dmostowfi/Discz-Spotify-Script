@@ -56,7 +56,6 @@ class SpotifyScraper:
         # parse response
         if response.status_code == 200:
             self.token = response.json()['access_token']
-            print(f"Access token: {self.token}")
 
             #update the header to include the token for future API requests
             self.headers = {
@@ -110,7 +109,7 @@ class SpotifyScraper:
                             if len(more_genres) == 0: pass
                             else:
                                 for genre in more_genres:
-                                    #don't add if already in genres_set
+                                    #don't add if already in original genres_set
                                     if genre not in self.genres_set:
                                         self.more_genres_set.add(genre)
                         #moving onto the next page
@@ -185,9 +184,9 @@ class SpotifyScraper:
             i = 0 #for tracking how many genres we get through before hitting limit
             for item in l:
                 
-                print(f"Finding artists for {item}")
+                #print(f"Finding artists for {item}")
                 i += 1
-                print("i=", i)
+                #print("i=", i)
                 # first, call Spotify /search API, filtered on query
                 if query == "genre":
                     params = {
@@ -201,7 +200,6 @@ class SpotifyScraper:
                         "type": "artist", 
                         "limit":50
                     }
-                print(params)
                 async with session.get('https://api.spotify.com/v1/search', headers=self.headers, params=params) as response:
                     self.api_call_counter()
                     # then, get artist data 
@@ -230,6 +228,9 @@ class SpotifyScraper:
                                 }
                                     #print(f"added artist {name}")
 
+                                if len(self.artist_data) == 100:
+                                    print(self.artist_data)
+
                             #moving onto the next page
                             next_page = data['artists']['next']
                             if next_page is not None:
@@ -254,7 +255,7 @@ class SpotifyScraper:
                         print(f'Error: {response.status}')
                         raise Exception(f'Error: {response.status}')
                     
-                print("#arists:", len(self.artist_data))
+                print("total arists in dict:", len(self.artist_data))
                     
 
 
