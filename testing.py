@@ -1,3 +1,6 @@
+# this file runs unittests on both async and  
+# sync methods from the SpotifyScraper() class 
+
 import unittest
 from unittest.mock import patch #for mock errors
 import aiohttp

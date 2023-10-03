@@ -1,3 +1,6 @@
+#this file creates the SpotifyScraper() class, which contains the async/sync methods 
+#necessary for extracting and writing artist data as well as tracking Spotify's rate limit 
+
 import base64
 import requests
 import os
