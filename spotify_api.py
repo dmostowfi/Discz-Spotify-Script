@@ -3,6 +3,7 @@ import requests
 import os
 import time
 import aiohttp
+import asyncio
 from collections import deque
 from dotenv import load_dotenv
 load_dotenv()
@@ -113,14 +114,17 @@ class SpotifyScraper:
                             async with session.get(next_page, headers=self.headers) as response:
                                 self.api_call_counter()
                                 if response.status == 429:
+                                    retry_after = int(response.headers.get('Retry-After', 5))
                                     print("Rate limit reached")
-                                    return
+                                    await asyncio.sleep(retry_after)
+                                    continue #TO DO - known issue: this skips the current iteration 
                                 else: data = await response.json()
                         else:
                             break #reached end of items for that genre
-                elif response.status == 429:
+                elif response.status == 429:                       
+                    retry_after = int(response.headers.get('Retry-After', 5))
                     print("Rate limit reached")
-                    return
+                    await asyncio.sleep(retry_after)
                 else:
                     error_msg = await response.content
                     print(f'Error: {error_msg}')
@@ -147,8 +151,10 @@ class SpotifyScraper:
                             async with session.get(next_page, headers=self.headers, params=params) as response:
                                 self.api_call_counter()
                                 if response.status == 429:
+                                    retry_after = int(response.headers.get('Retry-After', 5))
                                     print("Rate limit reached")
-                                    return
+                                    await asyncio.sleep(retry_after)
+                                    continue #TO DO - known issue: this skips the current iteration 
                                 else: data = await response.json()
                         else:
                             break #reached end of categories
@@ -168,8 +174,6 @@ class SpotifyScraper:
         
         print(f"API calls in the last 30 seconds: {len(self.timestamps)}")
 
-
-    #TO DO: try to hit the rate limit
     #method for writing artist data to dictionary
     async def add_artists(self, l: list[str], query: str): 
         async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
@@ -227,15 +231,19 @@ class SpotifyScraper:
                                 async with session.get(next_page, headers=self.headers) as response:
                                     self.api_call_counter()
                                     if response.status == 429:
+                                        retry_after = int(response.headers.get('Retry-After', 5))
                                         print("Rate limit reached")
-                                        return
+                                        await asyncio.sleep(retry_after)
+                                        continue #TO DO - known issue: this skips the current iteration 
                                     else: data = await response.json()
                             else:
                                 break #reached end of artists for that genre/category
                         
                     elif response.status == 429:
+                        retry_after = int(response.headers.get('Retry-After', 5))
                         print("Rate limit reached")
-                        return
+                        await asyncio.sleep(retry_after)
+                        continue #TO DO - known issue: this skips the current iteration 
                     else:
                         # TO DO: what happens when token expires
                         print(f'Error: {response.status}')
