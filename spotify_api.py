@@ -1,15 +1,27 @@
 import base64
 import requests
 import os
-
+import time
+from collections import deque
 from dotenv import load_dotenv
 load_dotenv()
 
 #class for all interactions with Spotify API
-class SpotifyAPI:
+class SpotifyScraper:
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(SpotifyScraper, cls).__new__(cls)
+            cls._instance._token = None
+        return cls._instance
+
+    def __init__(self):
+        self.total_api_calls = 0
+        self.timestamps = deque() #for counting #API calls in 30sec
     
-    # method for getting an access token
-    def get_token(self):
+    # method for retrieving an access token from Spotify
+    def _access_token(self):
     
         # get spotify app credentials
         client_id = os.getenv("CLIENT_ID")
@@ -35,6 +47,8 @@ class SpotifyAPI:
             headers=authOptions['headers'],
             data=authOptions['data']
         )
+        self.api_call_counter()
+        self.total_api_calls += 1
 
         # parse response
         if response.status_code == 200:
@@ -48,12 +62,18 @@ class SpotifyAPI:
         else:
             print(f"Failed to get token: {response.content}")
             raise Exception("Failed to get token")
+        
+    # method for retrieving access token
+    def get_token(self):
+        if self._token:
+            return self._token
+        return self._access_token()
 
-    
-
-    # method for calling genres API
+    # method for getting all available genres
     def get_genres(self):
         response = requests.get('https://api.spotify.com/v1/recommendations/available-genre-seeds', headers=self.headers)
+        self.api_call_counter()
+        self.total_api_calls += 1
         if response.status_code == 200:
             data = response.json()
             self.genres_list = data['genres']
@@ -62,6 +82,66 @@ class SpotifyAPI:
         else:
             print(f'Error: {response.content}')
             raise Exception("Failed to get genres")
+        
+    # method for getting markets where Spotify is available
+    def get_markets(self):
+        response = requests.get('https://api.spotify.com/v1/markets', headers=self.headers)
+        self.api_call_counter()
+        self.total_api_calls += 1
+        if response.status_code == 200:
+            data = response.json()
+            self.markets_list = data['markets']
+            print(self.markets_list)
+            print("# markets = ",len(self.markets_list))
+        else:
+            print(f'Error: {response.content}')
+            raise Exception("Failed to get markets")
+        
+    # method for getting categories
+    def get_categories(self):
+        self.categories_list = set() 
+        params = {"limit": 50}
+        response = requests.get('https://api.spotify.com/v1/browse/categories', headers=self.headers, params=params)
+        self.api_call_counter()
+        self.total_api_calls += 1
+        if response.status_code == 200:
+            data = response.json()
+            while True:
+                categories_json = data['categories']['items']
+                for item in categories_json:
+                    category = item['name']
+                    self.categories_list.add(category)
+                    print("adding to set:", category)
+
+                #moving onto the next page
+                next_page = data['categories']['next']
+                if next_page is not None:
+                    response = requests.get(next_page, headers=self.headers)
+                    self.api_call_counter()
+                    self.total_api_calls += 1
+                    if response.status_code == 429:
+                        print("Rate limit reached")
+                        return
+                    else: data = response.json()
+                else:
+                    break #reached end of categories
+
+            print(self.categories_list)
+            print("# categories = ",len(self.categories_list))
+        else:
+            print(f'Error: {response.content}')
+            raise Exception("Failed to get categories")
+        
+    #method for counting number of API calls in a 30 second window
+    def api_call_counter(self):
+        current_time = time.time()
+        self.timestamps.append(current_time)
+
+        # Remove API calls that are older than 30 seconds from the front of the queue
+        while self.timestamps and current_time - self.timestamps[0] > 30:
+            self.timestamps.popleft()
+        
+        print(f"API calls in the last 30 seconds: {len(self.timestamps)}")
 
 
     #TO DO: try to hit the rate limit
@@ -74,12 +154,13 @@ class SpotifyAPI:
 
         url = "https://api.spotify.com/v1/search"
         i = 0 #for tracking how many genres we get through before hitting limit
+        total_api_calls = 0
 
         for genre in self.genres_list:
             
             print(f"Finding artists for {genre} genre")
             i += 1
-            print("i=", i)
+            print("genre_i=", i)
             # first, call Spotify /search API and filter on genre
             params = {
                 "q": f"genre:\"{genre}\"",
@@ -87,6 +168,8 @@ class SpotifyAPI:
                 "limit":50
             }
             response = requests.get(url, headers=self.headers, params=params)
+            self.api_call_counter()
+            self.total_api_calls += 1
 
 
             # then, get artist data 
@@ -122,6 +205,8 @@ class SpotifyAPI:
                     next_page = data['artists']['next']
                     if next_page is not None:
                         response = requests.get(next_page, headers=self.headers)
+                        self.api_call_counter()
+                        total_api_calls += 1
                         if response.status_code == 429:
                             print("Rate limit reached")
                             return
@@ -136,6 +221,9 @@ class SpotifyAPI:
                 # TO DO: what happens when token expires
                 print(f'Error: {response.status_code}')
                 raise Exception(f'Error: {response.status_code}')
+        print("Total api calls:", total_api_calls)
+
+
 
 #uncomment the below for quick testing
 #open class:
