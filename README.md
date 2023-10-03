@@ -19,16 +19,18 @@ Given there is no direct route to extract all of Spotify's artist data, I create
 | ------ | -------------------------- | ------ | -------------------------- |
 | `get_genres` | Creates a set of 126 genres | /recommendations/ available-genre-seeds | Provides an entry point to getting initial results from `/search`, but is limited to broader genres that may exclude niche artists | 
 `get_categories` | Creates a list of 52 categories | /browse/categories | Searching by category aims to retrieve more niche artists not captured in genre filter, though there is likely some overlap; requires more iterations and API calls to page through categories results|  
-`get_niche_genres` | Creates a set of 42 new genres. Loops thru the original list of 126 genres to call` /search`, extract "genres" field for each artist, and add new, more niche genres to the set | /search | Searching on more niche genres allows newer artists to appear in `/search`, though this function takes O(n^3) time in the worst case to loop through artists, genres, and then paged `/search` results |
+`get_niche_genres` | Creates a set of 42 new genres. Loops thru the original list of 126 genres to call` /search`, extract "genres" field for each artist, and add new, more niche genres to the set | /search | Searching on more niche genres allows newer artists to appear in `/search`, though this function takes O(n^3) time in the worst case to loop through artists, genres, and then paged `/search` results. (A note on this below) |
 `add_artists` | Takes a genres set/category list as an argument and either "genre" or "category" query. Loops through list/set to call `/search` on a `genre` or `category`, then iterates through the returned artists to extract required data (will comment on writing data in next section) | /search | Although params for `/search` are slightly different whether searching on "genre" or "category", wanted to ensure `add_artists` accepted both types of inputs to adhere to "DRY" principle |
 
-"If I had more time" sidenote #1: Ideally I would have written more helper functions like the `get_` methods above leveraging different endpoints to extract even more artists. 
+"If I had more time" sidenote #1-2: 
+* Ideally I would have written more helper functions like the `get_` methods above leveraging different endpoints to extract even more artists.
+* Extend `add_artists` with the code for `get_niche_genres`. That is, when iterating through the /search endpoint filtered by genre, extract the genres field at the time time as extracting the artist data, and add to `niche_genres_set` if not in `genres_set`. This eliminates the need to complete the loop twice.   
 
 ### 2. Save artist data to dictionary:
 
 * Once the required artist fields are extracted from `/search` in add_artists, they are added to a dictionary called `artist_data`. I chose a dictionary data structure because operations for checking membership and insertion are both constant time (O(1)) on average, which is useful given that one artist can be associated with multiple genres/categories, and will likely appear multiple times in the various searches on genres, niche genres, and categories. This also ensured that all artists added to the dictionary were unique. 
 
-"If I had more time" sidenote #2: Writing the results to a MySQL database would have eliminated the need to re-run the long script and enabled easier access once the final results were completed. I would have done this by setting up a database, such as using AWS's Relational Database Service, creating a table called "artist data" with the 4 required fields, then writing a python script that connects to the database and uses INSERT INTO function to insert the data from `/search`.
+"If I had more time" sidenote #3: Writing the results to a MySQL database would have eliminated the need to re-run the long script and enabled easier access once the final results were completed. I would have done this by setting up a database, such as using AWS's Relational Database Service, creating a table called "artist data" with the 4 required fields, then writing a python script that connects to the database and uses INSERT INTO function to insert the data from `/search`.
 
 ### 3. (Trying to) Hit and Handle Spotify's Rate Limit:
 
@@ -40,14 +42,14 @@ Although I never hit the rate limit, I achieved a max of 240 API calls per rolli
 3. Run `get_niche_genres` when `get_genres` and `get_categories` finish
 4. Run `add_artists` on results of `get_genres`, `get_categories`, and `get_niche_genres` simultaneously. 
 
-"If I had more time" sidenote #3-4: 
+"If I had more time" sidenote #4-5: 
 * Find more endpoints to extract even more artists from `/search`, then run those concurrently within the flow above. Of course, I would do so with an eye for time complexity, ideally trying not to exceed loops that would exceed linear time. 
 * I want to note that I used `aiohttp` to make async HTTP requests. I was running into an SSL certificate error, which may be due to my older macOS. I want to acknowledge that my fix (setting `SSL verification = False`) is not best practice, but I went with it in favor of getting the functionality working. If I had more time I would properly update my certificates.  
 
 #### Handling the rate limit
 My current approach to handling the rate limit is to wait to hit the `429` status code, extract the `Retry-After` field from the response header, then hold off the script's execution until `Retry-After` time has passed.  
 
-"If I had more time" sidenote #5: The above was the most straightforward approach given the time constraints, but ideally I could have inspected the API's behavior when the rate limit was hit and decided the best course of action from there. A serious drawback to the above solution is being beholden to Spotify's suggestion, which is expected to be longer to moderate API usage. Some other approaches I may have considered (+ potential drawbacks) include: 
+"If I had more time" sidenote #6: The above was the most straightforward approach given the time constraints, but ideally I could have inspected the API's behavior when the rate limit was hit and decided the best course of action from there. A serious drawback to the above solution is being beholden to Spotify's suggestion, which is expected to be longer to moderate API usage. Some other approaches I may have considered (+ potential drawbacks) include: 
 
 *  Getting "just close enough": Once I identified when the rate limit was reached, I could used my `api_call_counter` helper function to track if I was about to hit the limit, approximated the minimum time needed to pause the script's execution to bring down that number, and then continued the script without ever hitting the 429 code. 
 * Using multiple tokens: First, this might be considered "cheating", but also the documentation suggests that rate limits are imposed when an APP makes too many calls, so my interpretation is that this wouldn't have solved the issue.
@@ -60,8 +62,8 @@ My current approach to handling the rate limit is to wait to hit the `429` statu
 * Created a helper function called `api_call_counter` to count the number of API calls in a rolling 30-second period. This function creates a queue data structure that holds the timestamps of every API call. I chose this DS because enqueuing and dequeing both take constant time (O(1)) and this data structure allows me to easily remove the oldest element (i.e., the older timestamps when more than 30 seconds have passed)  
 * Also manually tested using print statements, such as tracking the results of api_call_counter and measuring the final length of artist_data.
 
-"If I had more time" sidenote #6: Additional unit tests I would have run include: 
-* simulating receiving 429 response code and testing behavior on `get_genres`, `get_categories`, `get_niche_genres`, and `add_artists` (separately and together)
+"If I had more time" sidenote #7: Additional unit tests I would have run include: 
+* simulating receiving 429 response code and testing behavior on `get_genres`, `get_categories`, `get_niche_genres`, and `add_artists` (separately and together). I discovered [mockunittest](https://docs.python.org/3/library/unittest.mock.html) on the final day but didn't get to try it out
 * confirm insertion into `artist_data` dictionary (did so manually instead)
 * simulate token expiration 
 
