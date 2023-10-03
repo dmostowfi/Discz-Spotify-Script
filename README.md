@@ -1,5 +1,8 @@
 # Discz-Spotify-Script
 
+## How to run the script
+TO DO
+
 ## Summary of the approach
 
 ### 1. Extract artist data: 
@@ -46,9 +49,19 @@ My current approach to handling the rate limit is to wait to hit the `429` statu
 ### 4. Testing
 
 * Used unittest Python library to run various unit tests in testing.py
-* Created a helper function called api_call_counter to count the number of API calls in a rolling 30-second period.  
-* Also manually tested using print statements, such as tracking the results of api_call_counter and measuring the final length of artist_data.   
+* Created a helper function called api_call_counter to count the number of API calls in a rolling 30-second period. 
+* Also manually tested using print statements, such as tracking the results of api_call_counter and measuring the final length of artist_data.
 
-## How to run the script
-TO DO
+"If I had more time" sidenote #5: Additional unit tests I would have run include: 
+* simulating receiving 429 response code and testing behavior on `get_genres`, `get_categories`, `get_niche_genres`, and `add_artists` (separately and together)
+* confirm insertion into `artist_data` dictionary (did so manually instead)
+* simulate token expiration 
+
+## Thank you! 
+
+Thank you for the opportunity to work on this challenge, and special thanks to Emily for your mentorship and collaboration throughout this process. Your partnership was just what I needed to continue making progress!   
+
+
+
+
 
