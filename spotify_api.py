@@ -102,39 +102,43 @@ class SpotifyScraper:
             raise Exception("Failed to get markets")
         
     # method for getting categories
-    def get_categories(self):
-        self.categories_list = set() 
-        params = {"limit": 50}
-        response = requests.get('https://api.spotify.com/v1/browse/categories', headers=self.headers, params=params)
-        self.api_call_counter()
-        self.total_api_calls += 1
-        if response.status_code == 200:
-            data = response.json()
-            while True:
-                categories_json = data['categories']['items']
-                for item in categories_json:
-                    category = item['name']
-                    self.categories_list.add(category)
-                    print("adding to set:", category)
+    async def get_categories(self):
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
+            self.categories_list = set() 
+            params = {"limit": 50}
+            async with session.get('https://api.spotify.com/v1/browse/categories', headers=self.headers, params=params) as response:
+            #response = requests.get('https://api.spotify.com/v1/browse/categories', headers=self.headers, params=params)
+                self.api_call_counter()
+                self.total_api_calls += 1
+                if response.status == 200:
+                    data = await response.json()
+                    while True:
+                        categories_json = data['categories']['items']
+                        for item in categories_json:
+                            category = item['name']
+                            self.categories_list.add(category)
+                            print("adding to set:", category)
 
-                #moving onto the next page
-                next_page = data['categories']['next']
-                if next_page is not None:
-                    response = requests.get(next_page, headers=self.headers)
-                    self.api_call_counter()
-                    self.total_api_calls += 1
-                    if response.status_code == 429:
-                        print("Rate limit reached")
-                        return
-                    else: data = response.json()
+                        #moving onto the next page
+                        next_page = data['categories']['next']
+                        if next_page is not None:
+                            async with session.get(next_page, headers=self.headers, params=params) as response:
+                            #response = requests.get(next_page, headers=self.headers)
+                                self.api_call_counter()
+                                self.total_api_calls += 1
+                                if response.status == 429:
+                                    print("Rate limit reached")
+                                    return
+                                else: data = await response.json()
+                        else:
+                            break #reached end of categories
+
+                    print(self.categories_list)
+                    print("# categories = ",len(self.categories_list))
                 else:
-                    break #reached end of categories
-
-            print(self.categories_list)
-            print("# categories = ",len(self.categories_list))
-        else:
-            print(f'Error: {response.content}')
-            raise Exception("Failed to get categories")
+                    error_msg = await response.content
+                    print(f'Error: {error_msg}')
+                    raise Exception("Failed to get categories")
         
     #method for counting number of API calls in a 30 second window
     def api_call_counter(self):
