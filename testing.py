@@ -34,9 +34,8 @@ class SpotifyTestCases(unittest.IsolatedAsyncioTestCase):
         niche_len = len(self.spotify.more_genres_set)
         self.assertGreater(niche_len, genres_len)
 
-    #TO DOthrow error when rate limit is hit
 
-    #commented out because runs for too long
+    #commented out because runs for too long, but passes
     #adds to dictionary based on genres
     #async def test_adding_to_dict_genres(self):
     #    await self.spotify.get_genres()
