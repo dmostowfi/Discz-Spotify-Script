@@ -18,7 +18,7 @@ class SpotifyScraper:
         return cls._instance
 
     def __init__(self):
-        self.total_api_calls = 0
+        self.artist_data = {} #for storing artist info 
         self.timestamps = deque() #for counting #API calls in 30sec
     
     # method for retrieving an access token from Spotify
@@ -104,7 +104,7 @@ class SpotifyScraper:
     # method for getting categories
     async def get_categories(self):
         async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
-            self.categories_list = set() 
+            self.categories_list = [] 
             params = {"limit": 50}
             async with session.get('https://api.spotify.com/v1/browse/categories', headers=self.headers, params=params) as response:
             #response = requests.get('https://api.spotify.com/v1/browse/categories', headers=self.headers, params=params)
@@ -116,8 +116,8 @@ class SpotifyScraper:
                         categories_json = data['categories']['items']
                         for item in categories_json:
                             category = item['name']
-                            self.categories_list.add(category)
-                            print("adding to set:", category)
+                            self.categories_list.append(category)
+                            #print("adding to list:", category)
 
                         #moving onto the next page
                         next_page = data['categories']['next']
@@ -125,7 +125,6 @@ class SpotifyScraper:
                             async with session.get(next_page, headers=self.headers, params=params) as response:
                             #response = requests.get(next_page, headers=self.headers)
                                 self.api_call_counter()
-                                self.total_api_calls += 1
                                 if response.status == 429:
                                     print("Rate limit reached")
                                     return
@@ -155,90 +154,85 @@ class SpotifyScraper:
     #TO DO: try to hit the rate limit
     #TO DO: potentially write to DB
     #method for writing artist data to dictionary
-    def add_artists(self):
-
-        # initialize empty dict
-        artist_data = {}
-
-        url = "https://api.spotify.com/v1/search"
-        i = 0 #for tracking how many genres we get through before hitting limit
-        total_api_calls = 0
-
-        for genre in self.genres_list:
-            
-            print(f"Finding artists for {genre} genre")
-            i += 1
-            print("genre_i=", i)
-            # first, call Spotify /search API and filter on genre
-            params = {
-                "q": f"genre:\"{genre}\"",
-                "type": "artist", 
-                "limit":50
-            }
-            response = requests.get(url, headers=self.headers, params=params)
-            self.api_call_counter()
-            self.total_api_calls += 1
-
-
-            # then, get artist data 
-                #TO DO: think about how to use this to improve efficiency``
-                #newurl = data['artists']['href']
-            if response.status_code == 200:
-                data = response.json()
-
-                while True:
-                    #list of artists for that genre
-                    artists_list = data['artists']['items']
-                    print('total items =', data['artists']['total'])
-
-                    # time to add artists to dictionary
-                    for artist in artists_list:
-
-                        #extract data for each artist
-                        id = artist['id']
-                        name = artist['name']
-                        genres = artist['genres']
-                        popularity = artist['popularity']
-
-                        #check for membership to avoid duplicate entries
-                        if id not in artist_data:
-                            artist_data[id] = {
-                            'name': name,
-                            'genres': genres,
-                            'popularity': popularity
-                        }
-                            print(f"added artist {name}")
-
-                    #moving onto the next page
-                    next_page = data['artists']['next']
-                    if next_page is not None:
-                        response = requests.get(next_page, headers=self.headers)
-                        self.api_call_counter()
-                        total_api_calls += 1
-                        if response.status_code == 429:
-                            print("Rate limit reached")
-                            return
-                        else: data = response.json()
-                    else:
-                        break #reached end of artists for that genre
+    async def add_artists(self, l: list[str], query: str): 
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
+            i = 0 #for tracking how many genres we get through before hitting limit
+            for item in l[:1]:
                 
-            elif response.status_code == 429:
-                print("Rate limit reached")
-                return
-            else:
-                # TO DO: what happens when token expires
-                print(f'Error: {response.status_code}')
-                raise Exception(f'Error: {response.status_code}')
-        print("Total api calls:", total_api_calls)
+                print(f"Finding artists for {item}")
+                i += 1
+                print("i=", i)
+                # first, call Spotify /search API, filtered on query
+                if query == "genre":
+                    params = {
+                        "q": f"genre:\"{item}\"",
+                        "type": "artist", 
+                        "limit":50
+                    }
+                elif query == "category":
+                    params = {
+                        "q": f"category:\"{item}\"",
+                        "type": "artist", 
+                        "limit":50
+                    }
+                print(params)
+                async with session.get('https://api.spotify.com/v1/search', headers=self.headers, params=params) as response:
+                #response = requests.get(url, headers=self.headers, params=params)
+                    self.api_call_counter()
+                    # then, get artist data 
+                    if response.status == 200:
+                        data = await response.json()
+                        #print(data)
 
+                        while True:
+                            #list of artists for that genre
+                            artists_list = data['artists']['items']
+                            #print(artists_list)
+                            #print('total items =', data['artists']['total'])
 
+                            # time to add artists to dictionary
+                            for artist in artists_list:
 
-#uncomment the below for quick testing
-#open class:
-#spotify = SpotifyAPI()
-#spotify.get_token()
-#spotify.get_genres()
-#spotify.add_artists()
+                                #extract data for each artist
+                                id = artist['id']
+                                name = artist['name']
+                                genres = artist['genres']
+                                popularity = artist['popularity']
+
+                                #check for membership to avoid duplicate entries
+                                if id not in self.artist_data:
+                                    self.artist_data[id] = {
+                                    'name': name,
+                                    'genres': genres,
+                                    'popularity': popularity
+                                }
+                                    print(f"added artist {name}")
+
+                            #moving onto the next page
+                            next_page = data['artists']['next']
+                            print(next_page)
+                            if next_page is not None:
+                                async with session.get(next_page, headers=self.headers) as response:
+                                #response = requests.get(next_page, headers=self.headers)
+                                    self.api_call_counter()
+                                    #print(response.status)
+                                    if response.status == 429:
+                                        print("Rate limit reached")
+                                        return
+                                    else: data = await response.json()
+                            else:
+                                break #reached end of artists for that genre/category
+                        
+                    elif response.status == 429:
+                        print("Rate limit reached")
+                        return
+                    else:
+                        # TO DO: what happens when token expires
+                        print(f'Error: {response.status}')
+                        raise Exception(f'Error: {response.status}')
+                    
+            #print(self.artist_data)
+                    
 
 
 
