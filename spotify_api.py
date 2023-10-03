@@ -2,6 +2,7 @@ import base64
 import requests
 import os
 import time
+import aiohttp
 from collections import deque
 from dotenv import load_dotenv
 load_dotenv()
@@ -70,18 +71,21 @@ class SpotifyScraper:
         return self._access_token()
 
     # method for getting all available genres
-    def get_genres(self):
-        response = requests.get('https://api.spotify.com/v1/recommendations/available-genre-seeds', headers=self.headers)
-        self.api_call_counter()
-        self.total_api_calls += 1
-        if response.status_code == 200:
-            data = response.json()
-            self.genres_list = data['genres']
-            print(self.genres_list)
-            print("# genres = ",len(self.genres_list))
-        else:
-            print(f'Error: {response.content}')
-            raise Exception("Failed to get genres")
+    async def get_genres(self):
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
+            async with session.get('https://api.spotify.com/v1/recommendations/available-genre-seeds', headers=self.headers) as response:
+            #sync approach: #response = requests.get('https://api.spotify.com/v1/recommendations/available-genre-seeds', headers=self.headers)
+                self.api_call_counter()
+                self.total_api_calls += 1
+                if response.status == 200:
+                    data = await response.json()
+                    self.genres_list = data['genres']
+                    print(self.genres_list)
+                    print("# genres = ",len(self.genres_list))
+                else:
+                    error_msg = await response.content
+                    print(f'Error: {error_msg}')
+                    raise Exception("Failed to get genres")
         
     # method for getting markets where Spotify is available
     def get_markets(self):
