@@ -250,8 +250,10 @@ class SpotifyScraper:
                         print("Rate limit reached")
                         await asyncio.sleep(retry_after)
                         continue #TO DO - known issue: this skips the current iteration 
+                    elif response.status == 401: #token expired
+                        print("Expired token...refreshing")
+                        self.get_token()
                     else:
-                        # TO DO: what happens when token expires
                         print(f'Error: {response.status}')
                         raise Exception(f'Error: {response.status}')
                     
