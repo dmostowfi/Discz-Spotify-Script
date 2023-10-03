@@ -18,7 +18,7 @@ class SpotifyScraper:
         return cls._instance
 
     def __init__(self):
-        self.artist_data = {} #for storing artist info 
+        self.artist_data = {} #for storing artist info
         self.timestamps = deque() #for counting #API calls in 30sec
     
     # method for retrieving an access token from Spotify
@@ -49,7 +49,6 @@ class SpotifyScraper:
             data=authOptions['data']
         )
         self.api_call_counter()
-        self.total_api_calls += 1
 
         # parse response
         if response.status_code == 200:
@@ -76,22 +75,70 @@ class SpotifyScraper:
             async with session.get('https://api.spotify.com/v1/recommendations/available-genre-seeds', headers=self.headers) as response:
             #sync approach: #response = requests.get('https://api.spotify.com/v1/recommendations/available-genre-seeds', headers=self.headers)
                 self.api_call_counter()
-                self.total_api_calls += 1
                 if response.status == 200:
                     data = await response.json()
                     self.genres_list = data['genres']
-                    print(self.genres_list)
-                    print("# genres = ",len(self.genres_list))
+                    self.genres_set = set(self.genres_list)
+                    print(self.genres_set)
+                    print("# genres = ",len(self.genres_set))
                 else:
                     error_msg = await response.content
                     print(f'Error: {error_msg}')
                     raise Exception("Failed to get genres")
+                
+    #method for getting even more obscure genres
+    async def get_niche_genres(self):
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:                            
+            #create a new set, starting with the 126 genres we're already iterating over: 
+            self.more_genres_set = self.genres_set.copy()
+            #iterate through list of 126 genres extracted from get_genres
+            for genre in self.genres_list:
+                params = {
+                    "q": f"genre:\"{genre}\"",
+                    "type": "artist", 
+                    "limit":50
+                }
+            async with session.get('https://api.spotify.com/v1/search', headers=self.headers, params=params) as response:
+                self.api_call_counter()
+                if response.status == 200:
+                    data = await response.json()
+
+                    while True:
+                        artists_list = data['artists']['items']
+                        for item in artists_list:
+                            more_genres = item['genres']
+                            if len(more_genres) == 0: pass
+                            else:
+                                for genre in more_genres:
+                                    self.more_genres_set.add(genre)
+                        #moving onto the next page
+                        next_page = data['artists']['next']
+                        #print(next_page)
+                        if next_page is not None:
+                            async with session.get(next_page, headers=self.headers) as response:
+                            #response = requests.get(next_page, headers=self.headers)
+                                self.api_call_counter()
+                                #print(response.status)
+                                if response.status == 429:
+                                    print("Rate limit reached")
+                                    return
+                                else: data = await response.json()
+                        else:
+                            break #reached end of items for that genre
+                    print("# more genres = ",len(self.more_genres_set))
+                elif response.status == 429:
+                    print("Rate limit reached")
+                    return
+                else:
+                    error_msg = await response.content
+                    print(f'Error: {error_msg}')
+                    raise Exception("Failed to get more genres")
+
         
     # method for getting markets where Spotify is available
     def get_markets(self):
         response = requests.get('https://api.spotify.com/v1/markets', headers=self.headers)
         self.api_call_counter()
-        self.total_api_calls += 1
         if response.status_code == 200:
             data = response.json()
             self.markets_list = data['markets']
@@ -109,7 +156,6 @@ class SpotifyScraper:
             async with session.get('https://api.spotify.com/v1/browse/categories', headers=self.headers, params=params) as response:
             #response = requests.get('https://api.spotify.com/v1/browse/categories', headers=self.headers, params=params)
                 self.api_call_counter()
-                self.total_api_calls += 1
                 if response.status == 200:
                     data = await response.json()
                     while True:
@@ -157,7 +203,7 @@ class SpotifyScraper:
     async def add_artists(self, l: list[str], query: str): 
         async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
             i = 0 #for tracking how many genres we get through before hitting limit
-            for item in l[:1]:
+            for item in l:
                 
                 print(f"Finding artists for {item}")
                 i += 1
@@ -171,7 +217,7 @@ class SpotifyScraper:
                     }
                 elif query == "category":
                     params = {
-                        "q": f"category:\"{item}\"",
+                        "q": f"\"{item}\"",
                         "type": "artist", 
                         "limit":50
                     }
@@ -182,7 +228,7 @@ class SpotifyScraper:
                     # then, get artist data 
                     if response.status == 200:
                         data = await response.json()
-                        #print(data)
+                        #print(response.headers)
 
                         while True:
                             #list of artists for that genre
@@ -206,11 +252,11 @@ class SpotifyScraper:
                                     'genres': genres,
                                     'popularity': popularity
                                 }
-                                    print(f"added artist {name}")
+                                    #print(f"added artist {name}")
 
                             #moving onto the next page
                             next_page = data['artists']['next']
-                            print(next_page)
+                            #print(next_page)
                             if next_page is not None:
                                 async with session.get(next_page, headers=self.headers) as response:
                                 #response = requests.get(next_page, headers=self.headers)
